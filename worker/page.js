@@ -57,7 +57,9 @@ const currencies = ['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'];
 const standardPairs = currencies.flatMap((base,i)=>currencies.slice(i+1).map(quote=>base+quote));
 let trades = [], strategies = [], editing, strategyFilter = '';
 function renderStrategyTabs() {
-  const items=[['','All strategies'],...strategies.map(s=>[s.id,s.name+(s.archived?' (archived)':'')]),['unassigned','Unassigned']];
+  const active=strategies.filter(s=>!s.archived);
+  if(strategyFilter && strategyFilter!=='unassigned' && !active.some(s=>s.id===strategyFilter)) strategyFilter='';
+  const items=[['','All strategies'],...active.map(s=>[s.id,s.name]),['unassigned','Unassigned']];
   $('strategyTabs').replaceChildren(...items.map(([id,name])=>{
     const button=node('button',name);
     button.type='button';
