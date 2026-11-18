@@ -55,18 +55,22 @@ const day = 86400000;
 const dateOf = time => new Date(time).toISOString().slice(0,10);
 const currencies = ['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'];
 const standardPairs = currencies.flatMap((base,i)=>currencies.slice(i+1).map(quote=>base+quote));
-let trades = [], strategies = [], editing, strategyFilter = '';
+let trades = [], strategies = [], editing;
+const selectedStrategyIds = new Set();
 function renderStrategyTabs() {
   const active=strategies.filter(s=>!s.archived);
-  if(strategyFilter && !active.some(s=>s.id===strategyFilter)) strategyFilter='';
-  const items=[['','All strategies'],...active.map(s=>[s.id,s.name])];
-  $('strategyTabs').replaceChildren(...items.map(([id,name])=>{
+  for(const id of selectedStrategyIds){
+    if(!active.some(s=>s.id===id)) selectedStrategyIds.delete(id);
+  }
+  $('strategyTabs').hidden=active.length===0;
+  $('strategyTabs').replaceChildren(...active.map(({id,name})=>{
     const button=node('button',name);
     button.type='button';
-    button.setAttribute('aria-pressed',String(strategyFilter===id));
+    button.setAttribute('aria-pressed',String(selectedStrategyIds.has(id)));
     button.onclick=()=>{
-      strategyFilter=id;
-      for(const other of $('strategyTabs').children) other.setAttribute('aria-pressed',String(other===button));
+      if(selectedStrategyIds.has(id)) selectedStrategyIds.delete(id);
+      else selectedStrategyIds.add(id);
+      button.setAttribute('aria-pressed',String(selectedStrategyIds.has(id)));
       render();
     };
     return button;
@@ -102,19 +106,37 @@ function renderStrategyManager() {
     name.maxLength=50;
     name.setAttribute('aria-label','Name for '+s.name);
     const rename=node('button','Rename'), archive=node('button',s.archived?'Restore':'Archive');
+    const remove=node('button','Delete','red');
+    const disabled=value=>{rename.disabled=archive.disabled=remove.disabled=name.disabled=value;};
     const update=async (nextName,archived)=>{
-      rename.disabled=archive.disabled=name.disabled=true;
+      disabled(true);
       $('strategyError').textContent='';
       try{
         updateStrategy(await api('strategies','PATCH',{id:s.id,name:nextName,archived}));
         renderStrategyManager();
       }catch(error){
         strategyError(error);
-      }finally{rename.disabled=archive.disabled=name.disabled=false;}
+      }finally{disabled(false);}
     };
     rename.onclick=()=>update(name.value,Boolean(s.archived));
     archive.onclick=()=>update(s.name,!s.archived);
-    row.append(name,rename,archive);
+    remove.onclick=async ()=>{
+      if(!window.confirm('Permanently delete "'+s.name+'" and every trade assigned to it? This cannot be undone.')) return;
+      disabled(true);
+      $('strategyError').textContent='';
+      try{
+        await api('strategies?id='+encodeURIComponent(s.id),'DELETE');
+        selectedStrategyIds.delete(s.id);
+        strategies=strategies.filter(item=>item.id!==s.id);
+        trades=trades.filter(trade=>trade.strategy_id!==s.id);
+        renderStrategyTabs();
+        render();
+        renderStrategyManager();
+        await load();
+      }catch(error){strategyError(error);}
+      finally{disabled(false);}
+    };
+    row.append(name,rename,archive,remove);
     return row;
   }));
 }
@@ -155,7 +177,7 @@ async function api(path, method='GET', body) {
 function lock() {
   trades=[];
   strategies=[];
-  strategyFilter='';
+  selectedStrategyIds.clear();
   for(const id of ['strategyTabs','tradeStrategies','strategyList']) $(id).replaceChildren();
   if($('strategyManager').open) $('strategyManager').close();
   updatePairs();
@@ -193,7 +215,8 @@ function render() {
   const from=$('from').value, through=$('through').value;
   const invalid=from && through && from>through;
   const pair=$('pairFilter').value, frame=$('frameFilter').value;
-  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&(!strategyFilter||t.strategy_id===strategyFilter));
+  const archivedIds=new Set(strategies.filter(s=>s.archived).map(s=>s.id));
+  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&!archivedIds.has(t.strategy_id)&&(!selectedStrategyIds.size||selectedStrategyIds.has(t.strategy_id)));
   $('rangeText').textContent=from && through ? from+' to '+through : from ? 'Since '+from : through ? 'Through '+through : 'All dates';
   $('notice').textContent=invalid?'Choose an end date on or after the start date.':'';
   const count=selected.length;
@@ -280,8 +303,8 @@ function openEditor(t) {
   for(const [key,value] of Object.entries(defaults)){
     if(form.elements[key]) form.elements[key].value=value;
   }
-  const activeFilter=strategies.find(s=>s.id===strategyFilter&&!s.archived);
-  renderTradeStrategies(t?(t.strategy_id||''):(activeFilter?.id||''));
+  const defaultStrategy=selectedStrategyIds.size===1?[...selectedStrategyIds][0]:'';
+  renderTradeStrategies(t?(t.strategy_id||''):defaultStrategy);
   syncAmount();
   $('editor').showModal();
 }
