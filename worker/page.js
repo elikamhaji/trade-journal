@@ -35,7 +35,7 @@ export const page = String.raw`<!doctype html>
 <label>Date<input name="date" type="date" required></label>
 <fieldset class="choices " id="frameChoices"><legend>Timeframe</legend><div><label><input type="radio" name="frame" value="15m" checked required><span>15M</span></label><label><input type="radio" name="frame" value="1h" required><span>1H</span></label><label><input type="radio" name="frame" value="4h" required><span>4H</span></label></div></fieldset>
 <fieldset class="choices " id="sideChoices"><legend>Direction</legend><div><label><input type="radio" name="side" value="Long" checked required><span>Long</span></label><label><input type="radio" name="side" value="Short" required><span>Short</span></label></div></fieldset>
-<fieldset class="choices wide"><legend>Strategy</legend><div id="tradeStrategies"></div></fieldset>
+<fieldset class="choices wide" id="strategyChoices"><legend>Strategy</legend><div id="tradeStrategies"></div></fieldset>
 <label class="wide">TradingView link <input name="link" type="url" placeholder="https://www.tradingview.com/…" maxlength="2000"></label>
 <fieldset class="choices wide" id="outcomeChoices"><legend>Result</legend><div><label><input type="radio" name="outcome" value="Win" required><span>Win</span></label><label><input type="radio" name="outcome" value="Loss" required><span>Loss</span></label><label><input type="radio" name="outcome" value="Open" checked required><span>Open</span></label></div></fieldset>
 <fieldset class="choices wide" id="amountChoices"><legend>R multiple</legend><div><label><input type="radio" name="amount" value="0.5"><span>0.5R</span></label><label><input type="radio" name="amount" value="1"><span>1R</span></label><label><input type="radio" name="amount" value="1.5"><span>1.5R</span></label><label><input type="radio" name="amount" value="2"><span>2R</span></label></div></fieldset>
@@ -58,8 +58,8 @@ const standardPairs = currencies.flatMap((base,i)=>currencies.slice(i+1).map(quo
 let trades = [], strategies = [], editing, strategyFilter = '';
 function renderStrategyTabs() {
   const active=strategies.filter(s=>!s.archived);
-  if(strategyFilter && strategyFilter!=='unassigned' && !active.some(s=>s.id===strategyFilter)) strategyFilter='';
-  const items=[['','All strategies'],...active.map(s=>[s.id,s.name]),['unassigned','Unassigned']];
+  if(strategyFilter && !active.some(s=>s.id===strategyFilter)) strategyFilter='';
+  const items=[['','All strategies'],...active.map(s=>[s.id,s.name])];
   $('strategyTabs').replaceChildren(...items.map(([id,name])=>{
     const button=node('button',name);
     button.type='button';
@@ -73,13 +73,15 @@ function renderStrategyTabs() {
   }));
 }
 function renderTradeStrategies(selected) {
-  const options=[{id:'',name:'Unassigned'},...strategies.filter(s=>!s.archived||s.id===selected)];
+  const options=strategies.filter(s=>!s.archived||s.id===selected);
+  $('strategyChoices').hidden=options.length===0;
   $('tradeStrategies').replaceChildren(...options.map(s=>{
     const label=node('label',''), input=node('input','');
     input.type='radio';
     input.name='strategy_id';
     input.value=s.id;
-    input.checked=s.id===selected;
+    input.checked=s.id===selected||(!selected&&options.length===1);
+    input.required=true;
     label.append(input,node('span',s.name+(s.archived?' (archived)':'')));
     return label;
   }));
@@ -191,7 +193,7 @@ function render() {
   const from=$('from').value, through=$('through').value;
   const invalid=from && through && from>through;
   const pair=$('pairFilter').value, frame=$('frameFilter').value;
-  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&(!strategyFilter||(t.strategy_id||'unassigned')===strategyFilter));
+  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&(!strategyFilter||t.strategy_id===strategyFilter));
   $('rangeText').textContent=from && through ? from+' to '+through : from ? 'Since '+from : through ? 'Through '+through : 'All dates';
   $('notice').textContent=invalid?'Choose an end date on or after the start date.':'';
   const count=selected.length;
