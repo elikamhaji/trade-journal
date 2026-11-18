@@ -303,7 +303,9 @@ function openEditor(t) {
   for(const [key,value] of Object.entries(defaults)){
     if(form.elements[key]) form.elements[key].value=value;
   }
-  const defaultStrategy=selectedStrategyIds.size===1?[...selectedStrategyIds][0]:'';
+  const macdStrategy=strategies.find(s=>!s.archived&&s.id==='macd-divergence')
+    ||strategies.find(s=>!s.archived&&s.name.toLowerCase()==='macd divergence');
+  const defaultStrategy=macdStrategy?.id||(selectedStrategyIds.size===1?[...selectedStrategyIds][0]:'');
   renderTradeStrategies(t?(t.strategy_id||''):defaultStrategy);
   syncAmount();
   $('editor').showModal();
