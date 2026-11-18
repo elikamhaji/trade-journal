@@ -37,7 +37,16 @@ function trade(input) {
   return [id,pair,date,frame,side,link || '',outcome,hundredths];
 }
 
-async function manageStrategies(request, db) {
+async function manageStrategies(request, db, owner, url) {
+  if (request.method === 'DELETE') {
+    const id = url.searchParams.get('id');
+    if (!id) return reply({error:'Choose a strategy to delete.'},400);
+    const [,deleted] = await db.batch([
+      db.prepare('DELETE FROM trades WHERE owner=? AND strategy_id=?').bind(owner,id),
+      db.prepare('DELETE FROM strategies WHERE id=?').bind(id)
+    ]);
+    return deleted.meta.changes ? reply({}) : reply({error:'Strategy no longer exists.'},404);
+  }
   if (request.method === 'GET') {
     const {results} = await db.prepare('SELECT id,name,archived FROM strategies ORDER BY archived,name').all();
     return reply(results);
@@ -94,7 +103,7 @@ export default {
           !equal(proof,tag(await sign(env.SESSION_KEY,JSON.stringify([owner,Number(expiry),env.JOURNAL_PASSWORD]))))) {
         return reply({error:'Enter your journal password.'},401);
       }
-      if (url.pathname === '/api/strategies') return await manageStrategies(request, env.DB);
+      if (url.pathname === '/api/strategies') return await manageStrategies(request, env.DB, owner, url);
       if (url.pathname !== '/api/trades') return reply({error:'Page unavailable.'},404);
       const db = env.DB;
       if (request.method === 'GET') {
