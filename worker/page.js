@@ -176,13 +176,33 @@ function updatePairs() {
   select.value=pairs.includes(current)?current:'';
   $('pairOptions').replaceChildren(...pairs.map(p=>new Option(p,p)));
 }
+let sessionDeadline=0, sessionTimer;
+function checkSessionDeadline() {
+  if(sessionDeadline && Date.now()>=sessionDeadline) lock();
+}
+document.addEventListener('visibilitychange',checkSessionDeadline);
+window.addEventListener('pageshow',checkSessionDeadline);
 async function api(path, method='GET', body) {
+  const started=Date.now();
   const response = await fetch('/api/'+path,{method,headers:body ? {'Content-Type':'application/json'} : {},body:body && JSON.stringify(body)});
   const data = await response.json();
+  if(response.status===401 && path!=='login') lock();
   if (!response.ok) throw Object.assign(new Error(data.error),{status:response.status});
+  const remaining=response.headers.get('X-Session-Remaining');
+  if(remaining!==null){
+    sessionDeadline=started+Number(remaining);
+    clearTimeout(sessionTimer);
+    sessionTimer=setTimeout(checkSessionDeadline,Math.max(0,sessionDeadline-Date.now()));
+    if(Date.now()>=sessionDeadline){
+      lock();
+      throw Object.assign(new Error('Your session expired. Enter your password again.'),{status:401});
+    }
+  }
   return data;
 }
 function lock() {
+  clearTimeout(sessionTimer);
+  sessionDeadline=0;
   trades=[];
   strategies=[];
   selectedStrategyIds.clear();
