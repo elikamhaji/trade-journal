@@ -37,6 +37,33 @@ function trade(input) {
   return [id,pair,date,frame,side,link || '',outcome,hundredths];
 }
 
+async function manageStrategies(request, db) {
+  if (request.method === 'GET') {
+    const {results} = await db.prepare('SELECT id,name,archived FROM strategies ORDER BY archived,name').all();
+    return reply(results);
+  }
+  if (!['POST','PATCH'].includes(request.method)) return reply({error:'Method unavailable.'},405);
+  const input = await request.json();
+  const name = typeof input.name === 'string' ? input.name.trim().replace(/\s+/g,' ') : '';
+  if (!name || name.length > 50 || ['unassigned','all strategies'].includes(name.toLowerCase())) {
+    return reply({error:'Choose a strategy name of 1 to 50 characters.'},400);
+  }
+  const duplicate = await db.prepare('SELECT id FROM strategies WHERE name=?').bind(name).first();
+  if (duplicate && (request.method === 'POST' || duplicate.id !== input.id)) {
+    return reply({error:'That strategy name already exists.'},409);
+  }
+  if (request.method === 'POST') {
+    const id = crypto.randomUUID();
+    const result = await db.prepare('INSERT OR IGNORE INTO strategies (id,name) VALUES (?,?)').bind(id,name).run();
+    return result.meta.changes ? reply({id,name,archived:0},201) : reply({error:'That strategy name already exists.'},409);
+  }
+  if (typeof input.id !== 'string' || typeof input.archived !== 'boolean') {
+    return reply({error:'Check the strategy details.'},400);
+  }
+  const result = await db.prepare('UPDATE OR IGNORE strategies SET name=?,archived=? WHERE id=?').bind(name,Number(input.archived),input.id).run();
+  return result.meta.changes ? reply({id:input.id,name,archived:Number(input.archived)}) : reply({error:'Strategy could not be updated.'},409);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -67,18 +94,28 @@ export default {
           !equal(proof,tag(await sign(env.SESSION_KEY,JSON.stringify([owner,Number(expiry),env.JOURNAL_PASSWORD]))))) {
         return reply({error:'Enter your journal password.'},401);
       }
+      if (url.pathname === '/api/strategies') return await manageStrategies(request, env.DB);
       if (url.pathname !== '/api/trades') return reply({error:'Page unavailable.'},404);
       const db = env.DB;
       if (request.method === 'GET') {
-        const {results} = await db.prepare('SELECT id,pair,date,frame,side,link,outcome,NULLIF(hundredths_r,0) AS hundredths_r FROM trades WHERE owner=? ORDER BY date DESC,rowid DESC').bind(owner).all();
+        const {results} = await db.prepare('SELECT id,pair,date,frame,side,link,outcome,strategy_id,NULLIF(hundredths_r,0) AS hundredths_r FROM trades WHERE owner=? ORDER BY date DESC,rowid DESC').bind(owner).all();
         return reply(results);
       }
       if (request.method === 'POST') {
-        let values;
-        try { values = trade(await request.json()); }
+        let values, input;
+        try { input = await request.json(); values = trade(input); }
         catch (error) { return reply({error:error.message},400); }
         const [id,...fields] = values;
-        const result = await db.prepare('INSERT INTO trades (id,owner,pair,date,frame,side,link,outcome,hundredths_r) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET pair=excluded.pair,date=excluded.date,frame=excluded.frame,side=excluded.side,link=excluded.link,outcome=excluded.outcome,hundredths_r=excluded.hundredths_r WHERE trades.owner=excluded.owner').bind(id,owner,...fields).run();
+        const current = await db.prepare('SELECT strategy_id FROM trades WHERE id=? AND owner=?').bind(id,owner).first();
+        const strategyId = input.strategy_id === undefined ? current?.strategy_id ?? null : input.strategy_id || null;
+        if (strategyId !== null) {
+          if (typeof strategyId !== 'string') return reply({error:'Choose a valid strategy.'},400);
+          const strategy = await db.prepare('SELECT archived FROM strategies WHERE id=?').bind(strategyId).first();
+          if (!strategy || (strategy.archived && current?.strategy_id !== strategyId)) {
+            return reply({error:'Choose an active strategy.'},400);
+          }
+        }
+        const result = await db.prepare('INSERT INTO trades (id,owner,pair,date,frame,side,link,outcome,hundredths_r,strategy_id) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET pair=excluded.pair,date=excluded.date,frame=excluded.frame,side=excluded.side,link=excluded.link,outcome=excluded.outcome,hundredths_r=excluded.hundredths_r,strategy_id=excluded.strategy_id WHERE trades.owner=excluded.owner').bind(id,owner,...fields,strategyId).run();
         return result.meta.changes ? reply({}) : reply({error:'Trade could not be updated.'},409);
       }
       if (request.method === 'DELETE') {
