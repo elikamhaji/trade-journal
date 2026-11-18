@@ -23,14 +23,18 @@ function trade(input) {
   if (!pair || pair.length > 30 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(millis) ||
       new Date(millis).toISOString().slice(0,10) !== date ||
       !['15m','1h','4h'].includes(frame) || !['Long','Short'].includes(side) ||
-      !['Win','Loss'].includes(outcome) || !/^\d{1,8}(\.\d{1,2})?$/.test(amount) ||
-      Number(amount) <= 0 || !/^[0-9a-f-]{36}$/.test(id)) throw new Error('Check the trade fields and enter a positive R multiple.');
+      !['Win','Loss','Open'].includes(outcome) || !/^[0-9a-f-]{36}$/.test(id)) throw new Error('Check the trade details.');
+  if (outcome !== 'Open' && (!/^\d{1,8}(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0)) {
+    throw new Error('Choose an R multiple for this closed trade.');
+  }
   if (link) {
     const url = URL.parse(link);
     if (!url || url.protocol !== 'https:' || !['tradingview.com','www.tradingview.com'].includes(url.hostname) ||
         url.username || url.password || link.length > 2000) throw new Error('Enter a valid HTTPS TradingView link.');
   }
-  return [id,pair,date,frame,side,link || '',outcome,Math.round(Number(amount)*100)*(outcome === 'Loss' ? -1 : 1)];
+  // Open trades store zero to fit the existing schema and expose no realized R.
+  const hundredths = outcome === 'Open' ? 0 : Math.round(Number(amount)*100)*(outcome === 'Loss' ? -1 : 1);
+  return [id,pair,date,frame,side,link || '',outcome,hundredths];
 }
 
 export default {
@@ -66,7 +70,7 @@ export default {
       if (url.pathname !== '/api/trades') return reply({error:'Page unavailable.'},404);
       const db = env.DB;
       if (request.method === 'GET') {
-        const {results} = await db.prepare('SELECT id,pair,date,frame,side,link,outcome,hundredths_r FROM trades WHERE owner=? ORDER BY date DESC,rowid DESC').bind(owner).all();
+        const {results} = await db.prepare('SELECT id,pair,date,frame,side,link,outcome,NULLIF(hundredths_r,0) AS hundredths_r FROM trades WHERE owner=? ORDER BY date DESC,rowid DESC').bind(owner).all();
         return reply(results);
       }
       if (request.method === 'POST') {
