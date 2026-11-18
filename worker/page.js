@@ -57,13 +57,19 @@ const currencies = ['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'];
 const standardPairs = currencies.flatMap((base,i)=>currencies.slice(i+1).map(quote=>base+quote));
 let trades = [], strategies = [], editing;
 const selectedStrategyIds = new Set();
+let strategySelectionInitialized = false;
+function findMacdStrategy(active) {
+  return active.find(s=>s.id==='macd-divergence')||active.find(s=>s.name.toLowerCase()==='macd divergence');
+}
 function renderStrategyTabs() {
   const active=strategies.filter(s=>!s.archived);
+  const macd=findMacdStrategy(active);
+  const ordered=macd?[macd,...active.filter(s=>s!==macd)]:active;
   for(const id of selectedStrategyIds){
     if(!active.some(s=>s.id===id)) selectedStrategyIds.delete(id);
   }
   $('strategyTabs').hidden=active.length===0;
-  $('strategyTabs').replaceChildren(...active.map(({id,name})=>{
+  $('strategyTabs').replaceChildren(...ordered.map(({id,name})=>{
     const button=node('button',name);
     button.type='button';
     button.setAttribute('aria-pressed',String(selectedStrategyIds.has(id)));
@@ -91,7 +97,9 @@ function renderTradeStrategies(selected) {
   }));
 }
 function updateStrategy(strategy) {
-  strategies=[...strategies.filter(s=>s.id!==strategy.id),strategy].sort((a,b)=>a.archived-b.archived||a.name.localeCompare(b.name));
+  const index=strategies.findIndex(s=>s.id===strategy.id);
+  if(index===-1) strategies.push(strategy);
+  else strategies[index]=strategy;
   renderStrategyTabs();
   render();
 }
@@ -178,6 +186,7 @@ function lock() {
   trades=[];
   strategies=[];
   selectedStrategyIds.clear();
+  strategySelectionInitialized=false;
   for(const id of ['strategyTabs','tradeStrategies','strategyList']) $(id).replaceChildren();
   if($('strategyManager').open) $('strategyManager').close();
   updatePairs();
@@ -190,6 +199,11 @@ function lock() {
 async function load() {
   try {
     [trades,strategies]=await Promise.all([api('trades'),api('strategies')]);
+    if(!strategySelectionInitialized){
+      const macd=findMacdStrategy(strategies.filter(s=>!s.archived));
+      if(macd) selectedStrategyIds.add(macd.id);
+      strategySelectionInitialized=true;
+    }
     renderStrategyTabs();
     updatePairs();
     $('locked').hidden=true;
@@ -216,7 +230,7 @@ function render() {
   const invalid=from && through && from>through;
   const pair=$('pairFilter').value, frame=$('frameFilter').value;
   const archivedIds=new Set(strategies.filter(s=>s.archived).map(s=>s.id));
-  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&!archivedIds.has(t.strategy_id)&&(!selectedStrategyIds.size||selectedStrategyIds.has(t.strategy_id)));
+  const selected=invalid ? [] : trades.filter(t=>(!from||t.date>=from)&&(!through||t.date<=through)&&(!pair||t.pair===pair)&&(!frame||t.frame===frame)&&!archivedIds.has(t.strategy_id)&&selectedStrategyIds.has(t.strategy_id));
   $('rangeText').textContent=from && through ? from+' to '+through : from ? 'Since '+from : through ? 'Through '+through : 'All dates';
   $('notice').textContent=invalid?'Choose an end date on or after the start date.':'';
   const count=selected.length;
@@ -303,8 +317,7 @@ function openEditor(t) {
   for(const [key,value] of Object.entries(defaults)){
     if(form.elements[key]) form.elements[key].value=value;
   }
-  const macdStrategy=strategies.find(s=>!s.archived&&s.id==='macd-divergence')
-    ||strategies.find(s=>!s.archived&&s.name.toLowerCase()==='macd divergence');
+  const macdStrategy=findMacdStrategy(strategies.filter(s=>!s.archived));
   const defaultStrategy=macdStrategy?.id||(selectedStrategyIds.size===1?[...selectedStrategyIds][0]:'');
   renderTradeStrategies(t?(t.strategy_id||''):defaultStrategy);
   syncAmount();
