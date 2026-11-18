@@ -14,6 +14,7 @@ function equal(a,b) {
   for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ (b.charCodeAt(i) || 0);
   return mismatch === 0;
 }
+const sessionSeconds = 3600;
 const cookie = value => '__Host-journal=' + value + '; Path=/; HttpOnly; Secure; SameSite=Strict';
 
 function trade(input) {
@@ -92,15 +93,15 @@ export default {
             !equal(tag(await sign(env.SESSION_KEY,password)),tag(await sign(env.SESSION_KEY,env.JOURNAL_PASSWORD)))) {
           return reply({error:'Incorrect password.'},401);
         }
-        const expiry = Date.now() + 43200000;
-        const proof = tag(await sign(env.SESSION_KEY, JSON.stringify([owner,expiry,env.JOURNAL_PASSWORD])));
-        return reply({},200,{'Set-Cookie':cookie(expiry+'.'+proof)+'; Max-Age=43200'});
+        const expiry = Date.now() + sessionSeconds * 1000;
+        const proof = tag(await sign(env.SESSION_KEY, JSON.stringify(['hourly',owner,expiry,env.JOURNAL_PASSWORD])));
+        return reply({},200,{'Set-Cookie':cookie(expiry+'.'+proof)+'; Max-Age='+sessionSeconds});
       }
       if (url.pathname === '/api/logout' && request.method === 'POST') return reply({},200,{'Set-Cookie':cookie('')+'; Max-Age=0'});
       const raw = /(?:^|;\s*)__Host-journal=([^;]+)/.exec(request.headers.get('Cookie') || '')?.[1] || '';
       const [expiry, proof] = raw.split('.');
       if (!proof || Number(expiry) <= Date.now() || !/^\d{13}$/.test(expiry) ||
-          !equal(proof,tag(await sign(env.SESSION_KEY,JSON.stringify([owner,Number(expiry),env.JOURNAL_PASSWORD]))))) {
+          !equal(proof,tag(await sign(env.SESSION_KEY,JSON.stringify(['hourly',owner,Number(expiry),env.JOURNAL_PASSWORD]))))) {
         return reply({error:'Enter your journal password.'},401);
       }
       if (url.pathname === '/api/strategies') return await manageStrategies(request, env.DB, owner, url);
@@ -108,7 +109,7 @@ export default {
       const db = env.DB;
       if (request.method === 'GET') {
         const {results} = await db.prepare('SELECT id,pair,date,frame,side,link,outcome,strategy_id,NULLIF(hundredths_r,0) AS hundredths_r FROM trades WHERE owner=? ORDER BY date DESC,rowid DESC').bind(owner).all();
-        return reply(results);
+        return reply(results,200,{'X-Session-Remaining':String(Math.max(0,Number(expiry)-Date.now()))});
       }
       if (request.method === 'POST') {
         let values, input;
