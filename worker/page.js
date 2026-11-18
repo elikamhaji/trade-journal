@@ -5,7 +5,7 @@ export const page = String.raw`<!doctype html>
 <style>
 :root{color-scheme:dark;--bg:#09090b;--panel:#141417;--edge:#2a2a2f;--muted:#a3a3ad;--ink:#f5f5f7;--green:#79e7b3;--red:#f79a9a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px system-ui,sans-serif}header{border-bottom:1px solid var(--edge)}header div,main{max-width:1200px;margin:auto;padding:18px 26px}header div,.split,.filters,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{font-weight:700;display:flex;gap:11px;align-items:center}.mark{display:grid;place-items:center;width:30px;height:30px;background:#183629;color:var(--green);border-radius:8px}h1{font-size:clamp(30px,5vw,46px);letter-spacing:-.045em;margin:0}h2{margin:0;font-size:20px}h3{margin:0;font-size:16px}p{color:var(--muted);margin:8px 0 0}main{padding-top:42px}.panel,.card,dialog{background:var(--panel);border:1px solid var(--edge);border-radius:14px}.panel{padding:20px;margin-top:18px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}.card{padding:17px}.card span,label{color:var(--muted);font-size:13px}.card strong{display:block;font-size:clamp(19px,3vw,28px);margin:7px 0 2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.green,a{color:var(--green)}.red,[role=alert]{color:var(--red)}button,input,select{font:inherit;border:1px solid var(--edge);border-radius:8px;padding:9px 12px;color:var(--ink);background:#101013}button{cursor:pointer;font-weight:600}button:hover{border-color:#7b7b86}button:disabled{opacity:.6;cursor:wait}.primary{background:var(--green);color:#092016;border-color:var(--green)}:focus-visible{outline:2px solid var(--green);outline-offset:3px}label{display:grid;gap:6px}input,select{min-width:0}.table{overflow-x:auto;margin:14px -20px -20px}table{border-collapse:collapse;width:100%;white-space:nowrap}th,td{text-align:left;padding:12px 16px;border-top:1px solid var(--edge)}th{font-size:12px;color:var(--muted);font-weight:600}td button{padding:5px 9px;font-size:13px;margin-right:4px}.empty{text-align:center;padding:32px;color:var(--muted)}.pill{display:inline-block;padding:3px 8px;border-radius:6px;background:#222228}.lock{max-width:410px;margin:10vh auto 0}.lock form{display:grid;gap:14px;margin-top:22px}dialog{width:min(520px,calc(100% - 24px));padding:24px;color:var(--ink)}dialog::backdrop{background:#000b}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.wide{grid-column:1/-1}[hidden]{display:none!important}.plot{display:flex;align-items:center;justify-content:center;min-height:130px;margin-top:16px;color:var(--muted)}.plot svg{width:100%;height:130px;overflow:visible}small{color:var(--muted)}@media(max-width:660px){header div,main{padding-left:14px;padding-right:14px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{justify-content:flex-start}}
 .choices{border:0;padding:0;margin:0;min-width:0}.choices legend{color:var(--muted);font-size:13px;margin-bottom:6px}.choices div{display:flex;flex-wrap:wrap;gap:6px}.choices label{display:block;position:relative;cursor:pointer}.choices input{position:absolute;opacity:0;width:1px;height:1px}.choices span{display:block;padding:8px 11px;border:1px solid var(--edge);border-radius:8px;background:#101013;color:var(--ink);font-weight:600}.choices input:checked+span{background:#183629;color:var(--green);border-color:var(--green)}.choices input:focus-visible+span{outline:2px solid var(--green);outline-offset:2px}.amber{color:#f4c575}dialog{max-height:calc(100dvh - 24px)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:420px){.grid{grid-template-columns:1fr}}
-#strategyTabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}#strategyTabs [aria-pressed=true]{border-color:var(--green);color:var(--green);background:#183629}.strategy-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--edge)}.strategy-row input{flex:1 1 140px}.strategy-list{margin:12px 0}.new-strategy{display:grid;gap:12px;margin-top:16px}.strategy-add{margin-top:8px}
+#strategyTabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}#strategyTabs [aria-pressed=true]{border-color:var(--green);color:var(--green);background:#183629}.strategy-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--edge)}.strategy-row input{flex:1 1 140px}.strategy-list{margin:12px 0}.new-strategy{display:grid;gap:12px;margin-top:16px}
 </style></head>
 <body>
 <header><div><span class="brand"><span class="mark" aria-hidden="true">↗</span> Trade Journal</span><button id="logout" hidden>Lock journal</button></div></header>
@@ -35,7 +35,7 @@ export const page = String.raw`<!doctype html>
 <label>Date<input name="date" type="date" required></label>
 <fieldset class="choices " id="frameChoices"><legend>Timeframe</legend><div><label><input type="radio" name="frame" value="15m" checked required><span>15M</span></label><label><input type="radio" name="frame" value="1h" required><span>1H</span></label><label><input type="radio" name="frame" value="4h" required><span>4H</span></label></div></fieldset>
 <fieldset class="choices " id="sideChoices"><legend>Direction</legend><div><label><input type="radio" name="side" value="Long" checked required><span>Long</span></label><label><input type="radio" name="side" value="Short" required><span>Short</span></label></div></fieldset>
-<fieldset class="choices wide"><legend>Strategy</legend><div id="tradeStrategies"></div><button type="button" id="quickStrategy" class="strategy-add">＋ New strategy</button></fieldset>
+<fieldset class="choices wide"><legend>Strategy</legend><div id="tradeStrategies"></div></fieldset>
 <label class="wide">TradingView link <input name="link" type="url" placeholder="https://www.tradingview.com/…" maxlength="2000"></label>
 <fieldset class="choices wide" id="outcomeChoices"><legend>Result</legend><div><label><input type="radio" name="outcome" value="Win" required><span>Win</span></label><label><input type="radio" name="outcome" value="Loss" required><span>Loss</span></label><label><input type="radio" name="outcome" value="Open" checked required><span>Open</span></label></div></fieldset>
 <fieldset class="choices wide" id="amountChoices"><legend>R multiple</legend><div><label><input type="radio" name="amount" value="0.5"><span>0.5R</span></label><label><input type="radio" name="amount" value="1"><span>1R</span></label><label><input type="radio" name="amount" value="1.5"><span>1.5R</span></label><label><input type="radio" name="amount" value="2"><span>2R</span></label></div></fieldset>
@@ -56,7 +56,6 @@ const dateOf = time => new Date(time).toISOString().slice(0,10);
 const currencies = ['EUR','GBP','AUD','NZD','USD','CAD','CHF','JPY'];
 const standardPairs = currencies.flatMap((base,i)=>currencies.slice(i+1).map(quote=>base+quote));
 let trades = [], strategies = [], editing, strategyFilter = '';
-let creatingFromTrade = false;
 function renderStrategyTabs() {
   const items=[['','All strategies'],...strategies.map(s=>[s.id,s.name+(s.archived?' (archived)':'')]),['unassigned','Unassigned']];
   $('strategyTabs').replaceChildren(...items.map(([id,name])=>{
@@ -115,33 +114,24 @@ function renderStrategyManager() {
     return row;
   }));
 }
-function openStrategies(fromTrade) {
-  creatingFromTrade=fromTrade;
-  $('strategyTitle').textContent=fromTrade?'New strategy':'Manage strategies';
-  $('strategyList').hidden=fromTrade;
+function openStrategies() {
   $('strategyError').textContent='';
   $('strategyForm').reset();
-  if(!fromTrade) renderStrategyManager();
+  renderStrategyManager();
   $('strategyManager').showModal();
-  if(fromTrade) $('strategyForm').elements.name.focus();
 }
-$('manageStrategies').onclick=()=>openStrategies(false);
-$('quickStrategy').onclick=()=>openStrategies(true);
+$('manageStrategies').onclick=openStrategies;
 $('closeStrategies').onclick=()=>$('strategyManager').close();
 $('strategyForm').onsubmit=async event=>{
   event.preventDefault();
   const form=event.currentTarget, button=form.querySelector('button');
-  const fromTrade=creatingFromTrade;
   button.disabled=true;
   $('strategyError').textContent='';
   try{
     const strategy=await api('strategies','POST',{name:form.elements.name.value});
     updateStrategy(strategy);
     form.reset();
-    if(fromTrade){
-      if($('editor').open) renderTradeStrategies(strategy.id);
-      $('strategyManager').close();
-    }else renderStrategyManager();
+    renderStrategyManager();
   }catch(error){strategyError(error);}
   finally{button.disabled=false;}
 };
@@ -282,7 +272,8 @@ function openEditor(t) {
     label.append(input,node('span',amount+'R'));
     $('amountChoices').querySelector('div').append(label);
   }
-  for(const [key,value] of Object.entries(t?{...t,amount}:{date:today()})){
+  const defaults=t?{...t,amount,outcome:t.outcome==='Open'?'Win':t.outcome}:{date:today()};
+  for(const [key,value] of Object.entries(defaults)){
     if(form.elements[key]) form.elements[key].value=value;
   }
   const activeFilter=strategies.find(s=>s.id===strategyFilter&&!s.archived);
