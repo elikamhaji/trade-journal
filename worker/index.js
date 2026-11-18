@@ -48,7 +48,7 @@ async function manageStrategies(request, db, owner, url) {
     return deleted.meta.changes ? reply({}) : reply({error:'Strategy no longer exists.'},404);
   }
   if (request.method === 'GET') {
-    const {results} = await db.prepare('SELECT id,name,archived FROM strategies ORDER BY archived,name').all();
+    const {results} = await db.prepare("SELECT id,name,archived FROM strategies ORDER BY (id = 'macd-divergence') DESC, rowid").all();
     return reply(results);
   }
   if (!['POST','PATCH'].includes(request.method)) return reply({error:'Method unavailable.'},405);
