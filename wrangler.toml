@@ -1,0 +1,16 @@
+name = "trade-journal"
+main = "worker/index.js"
+compatibility_date = "2026-11-18"
+workers_dev = true
+preview_urls = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trade-journal"
+database_id = "REPLACE_WITH_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[ratelimits]]
+name = "LOGIN_LIMIT"
+namespace_id = "987361"
+simple = { limit = 6, period = 60 }
